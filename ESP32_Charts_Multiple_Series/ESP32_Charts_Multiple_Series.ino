@@ -5,12 +5,13 @@
   Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files.
   The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 *********/
+#define RXp2 16
+#define TXp2 17
 
 #include <Arduino.h>
-#include <ESP8266WiFi.h>
-#include <ESPAsyncTCP.h>
+#include <WiFi.h>
 #include <ESPAsyncWebServer.h>
-#include "LittleFS.h"
+#include <SPIFFS.h>
 #include <Arduino_JSON.h>
 
 // Replace with your network credentials
@@ -38,17 +39,13 @@ unsigned long timerDelay = 1000;
 //  String jsonString = JSON.stringify(readings);
 //  return jsonString;
 //}
-
-// Initialize LittleFS
-void initLittleFS() {
-  if (!LittleFS.begin()) {
-    Serial.println("An error has occurred while mounting LittleFS");
-  }
-  else{
-    Serial.println("LittleFS mounted successfully");
+void initSPIFFS() {
+  // Initialize SPIFFS
+  if(!SPIFFS.begin()){
+    Serial.println("An Error has occurred while mounting SPIFFS");
+    return;
   }
 }
-
 // Initialize WiFi
 void initWiFi() {
   WiFi.mode(WIFI_STA);
@@ -64,18 +61,19 @@ void initWiFi() {
 void setup() {
   // Serial port for debugging purposes
   Serial.begin(115200);
+  Serial2.begin(9600, SERIAL_8N1, RXp2, TXp2);
   initWiFi();
-  initLittleFS();
+  initSPIFFS();
 while (!Serial) {
 ; // wait for serial port to connect. Needed for native USB port only
 }
 
   // Web Server Root URL
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send(LittleFS, "/index.html", "text/html");
+    request->send(SPIFFS, "/index.html", "text/html");
   });
 
-  server.serveStatic("/", LittleFS, "/");
+  server.serveStatic("/", SPIFFS, "/");
   
 
   // Request for the latest sensor readings
@@ -97,11 +95,27 @@ while (!Serial) {
   // Start server
   server.begin();
 }
-
+String rotorval = "";
+String prev_rotorval = "";
 void loop() {
-  if (Serial.available()) {
-    readings["sensor1"] = String(0);
+    rotorval = Serial2.readStringUntil('\n');
+    if (rotorval != "") {
+      prev_rotorval = rotorval;
+      }
+    Serial.print("rotorval: ");
+    Serial.println(rotorval);
+    Serial.print("prev_rotorval: ");
+    Serial.println(prev_rotorval);
+    
+//    Serial.println(char(Serial2.read()));
+    if (rotorval != "") {
+      readings["sensor1"] = rotorval;
+    } else {
+      readings["sensor1"] = prev_rotorval;
+      }
+    
     String jsonString = JSON.stringify(readings);
+//    Serial.println(jsonString);
   if ((millis() - lastTime) > timerDelay) {
     // Send Events to the client with the Sensor Readings Every 10 seconds
     events.send("ping",NULL,millis());
@@ -109,5 +123,5 @@ void loop() {
     events.send(jsonString.c_str(),"new_readings" ,millis());
     lastTime = millis();
   }
-}
+
 }
