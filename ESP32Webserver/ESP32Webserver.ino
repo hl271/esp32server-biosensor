@@ -15,8 +15,8 @@
 #include <Arduino_JSON.h>
 
 // Replace with your network credentials
-const char* ssid = "Huyen Minh";
-const char* password = "huyen2002";
+const char* ssid = "Linh";
+const char* password = "219nguyenchinh";
 
 // Create AsyncWebServer object on port 80
 AsyncWebServer server(80);
@@ -51,14 +51,11 @@ void initWiFi() {
 }
 
 void setup() {
+  initWiFi();
+  initSPIFFS();
   // Serial port for debugging purposes
   Serial.begin(115200);
   Serial2.begin(9600, SERIAL_8N1, RXp2, TXp2);
-  initWiFi();
-  initSPIFFS();
-while (!Serial) {
-; // wait for serial port to connect. Needed for native USB port only
-}
 
   // Web Server Root URL
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
@@ -89,7 +86,9 @@ while (!Serial) {
 }
 String rotorval = "";
 String prev_rotorval = "";
+
 void loop() {
+ Serial.println(WiFi.localIP());
     rotorval = Serial2.readStringUntil('\n');
     if (rotorval != "") {
       prev_rotorval = rotorval;
